@@ -12,7 +12,7 @@ import streamlit as st
 import requests
 from datetime import date
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "https://fullcontrol-production.up.railway.app"
 
 st.set_page_config(
     page_title="MedAssist — Patient Portal",
