@@ -863,68 +863,70 @@ with tab_pts:
 
                     b1, b2 = st.columns([3, 1])
                     with b1:
+                        cdata_key = f"cdata_{p['id']}"
                         if st.button(f"📋 Load Consultations", key=f"lc_{p['id']}"):
-                            cdata = api_get(f"/patients/{p['id']}/consultations")
-                            if cdata:
-                                st.markdown(f"**{cdata.get('total_consultations',0)} consultation(s):**")
-                                for c in cdata.get("consultations", []):
-                                    syms = [s.get("symptom_name","") for s in c.get("symptoms", [])]
-                                    approval = c.get("doctor_approval_status", "pending")
-                                    badge_html = '<span style="background:#22c55e22;border:1px solid #22c55e;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#22c55e">✅ Reviewed</span>' \
-                                        if approval == "approved" else \
-                                        '<span style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#f59e0b">⏳ Pending</span>'
-                                    st.markdown(f"**#{c['id']}** — {(c.get('consultation_date') or '')[:10]} | Severity: {c.get('severity','—')} | {c.get('model_used','—')} {badge_html}", unsafe_allow_html=True)
-                                    if syms: st.markdown(f"Symptoms: {', '.join(syms)}")
-                                    toggle_key = f"show_diag_{c['id']}"
-                                    if toggle_key not in st.session_state:
-                                        st.session_state[toggle_key] = False
-                                    if st.button(f"{'🔼 Hide' if st.session_state[toggle_key] else '🔽 Show'} Full AI Diagnosis #{c['id']}", key=f"btn_diag_{c['id']}"):
-                                        st.session_state[toggle_key] = not st.session_state[toggle_key]
-                                    if st.session_state[toggle_key]:
-                                        st.markdown(c.get("ai_diagnosis") or "No diagnosis recorded.")
-                                        if c.get("doctor_notes"):
-                                            st.markdown(f"**🩺 Doctor's Note:** {c['doctor_notes']}")
-                                        # Review form — only show if pending
-                                        if approval != "approved":
-                                            st.markdown("---")
-                                            st.markdown("**✍️ Review & Approve this Diagnosis:**")
-                                            review_notes = st.text_area(f"Doctor's Notes for #{c['id']}",
-                                                placeholder="Add clinical notes, corrections, or follow-up instructions...",
-                                                key=f"notes_{c['id']}", height=80)
-                                            urgency = st.selectbox(f"Urgency Level #{c['id']}",
-                                                ["", "Non-Urgent", "48-72 Hours", "Today", "Emergency"],
-                                                key=f"urg_{c['id']}")
-                                            col_approve, col_reject = st.columns(2)
-                                            with col_approve:
-                                                if st.button(f"✅ Approve #{c['id']}", key=f"appr_{c['id']}", type="primary"):
-                                                    if not review_notes.strip():
-                                                        st.error("Please add doctor's notes before approving.")
+                            st.session_state[cdata_key] = api_get(f"/patients/{p['id']}/consultations")
+                        cdata = st.session_state.get(cdata_key)
+                        if cdata:
+                            st.markdown(f"**{cdata.get('total_consultations',0)} consultation(s):**")
+                            for c in cdata.get("consultations", []):
+                                syms = [s.get("symptom_name","") for s in c.get("symptoms", [])]
+                                approval = c.get("doctor_approval_status", "pending")
+                                badge_html = '<span style="background:#22c55e22;border:1px solid #22c55e;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#22c55e">✅ Reviewed</span>' \
+                                    if approval == "approved" else \
+                                    '<span style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#f59e0b">⏳ Pending</span>'
+                                st.markdown(f"**#{c['id']}** — {(c.get('consultation_date') or '')[:10]} | Severity: {c.get('severity','—')} | {c.get('model_used','—')} {badge_html}", unsafe_allow_html=True)
+                                if syms: st.markdown(f"Symptoms: {', '.join(syms)}")
+                                toggle_key = f"show_diag_{c['id']}"
+                                if toggle_key not in st.session_state:
+                                    st.session_state[toggle_key] = False
+                                if st.button(f"{'🔼 Hide' if st.session_state[toggle_key] else '🔽 Show'} Full AI Diagnosis #{c['id']}", key=f"btn_diag_{c['id']}"):
+                                    st.session_state[toggle_key] = not st.session_state[toggle_key]
+                                if st.session_state[toggle_key]:
+                                    st.markdown(c.get("ai_diagnosis") or "No diagnosis recorded.")
+                                    if c.get("doctor_notes"):
+                                        st.markdown(f"**🩺 Doctor's Note:** {c['doctor_notes']}")
+                                    # Review form — only show if pending
+                                    if approval != "approved":
+                                        st.markdown("---")
+                                        st.markdown("**✍️ Review & Approve this Diagnosis:**")
+                                        review_notes = st.text_area(f"Doctor's Notes for #{c['id']}",
+                                            placeholder="Add clinical notes, corrections, or follow-up instructions...",
+                                            key=f"notes_{c['id']}", height=80)
+                                        urgency = st.selectbox(f"Urgency Level #{c['id']}",
+                                            ["", "Non-Urgent", "48-72 Hours", "Today", "Emergency"],
+                                            key=f"urg_{c['id']}")
+                                        col_approve, col_reject = st.columns(2)
+                                        with col_approve:
+                                            if st.button(f"✅ Approve #{c['id']}", key=f"appr_{c['id']}", type="primary"):
+                                                if not review_notes.strip():
+                                                    st.error("Please add doctor's notes before approving.")
+                                                else:
+                                                    rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
+                                                        "doctor_notes": review_notes.strip(),
+                                                        "approved": True,
+                                                        "urgency_level": urgency or None
+                                                    })
+                                                    if rc == 200:
+                                                        st.success(f"✅ Consultation #{c['id']} approved!")
+                                                        st.rerun()
                                                     else:
-                                                        rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
-                                                            "doctor_notes": review_notes.strip(),
-                                                            "approved": True,
-                                                            "urgency_level": urgency or None
-                                                        })
-                                                        if rc == 200:
-                                                            st.success(f"✅ Consultation #{c['id']} approved!")
-                                                            st.rerun()
-                                                        else:
-                                                            st.error(f"Error: {rv.get('detail','')}")
-                                            with col_reject:
-                                                if st.button(f"❌ Flag for Revision #{c['id']}", key=f"flag_{c['id']}", type="secondary"):
-                                                    if not review_notes.strip():
-                                                        st.error("Please add notes explaining the revision needed.")
+                                                        st.error(f"Error: {rv.get('detail','')}")
+                                        with col_reject:
+                                            if st.button(f"❌ Flag for Revision #{c['id']}", key=f"flag_{c['id']}", type="secondary"):
+                                                if not review_notes.strip():
+                                                    st.error("Please add notes explaining the revision needed.")
+                                                else:
+                                                    rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
+                                                        "doctor_notes": review_notes.strip(),
+                                                        "approved": False,
+                                                        "urgency_level": urgency or None
+                                                    })
+                                                    if rc == 200:
+                                                        st.warning(f"Consultation #{c['id']} flagged for revision.")
+                                                        st.rerun()
                                                     else:
-                                                        rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
-                                                            "doctor_notes": review_notes.strip(),
-                                                            "approved": False,
-                                                            "urgency_level": urgency or None
-                                                        })
-                                                        if rc == 200:
-                                                            st.warning(f"Consultation #{c['id']} flagged for revision.")
-                                                            st.rerun()
-                                                        else:
-                                                            st.error(f"Error: {rv.get('detail','')}")
+                                                        st.error(f"Error: {rv.get('detail','')}")
                     with b2:
                         if st.button(f"🗑️ Deactivate", key=f"dp_{p['id']}", type="secondary"):
                             try:
