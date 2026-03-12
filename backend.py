@@ -517,6 +517,38 @@ def promote_user(email: str, new_role: str,
     return {"success": True, "message": f"{email} is now {new_role}"}
 
 
+@app.get("/admin/pending-doctors", tags=["Auth"])
+def pending_doctors(current_user=Depends(require_admin), db: Session = Depends(get_db)):
+    """Admin-only: list doctor accounts awaiting approval (is_active=False, role=doctor)."""
+    from database import User
+    users = db.query(User).filter(User.role == "doctor", User.is_active == False).all()
+    return {"total": len(users), "users": [u.to_dict() for u in users]}
+
+
+@app.patch("/admin/activate", tags=["Auth"])
+def activate_user(email: str, current_user=Depends(require_admin), db: Session = Depends(get_db)):
+    """Admin-only: approve a pending doctor — sets is_active=True so they can log in."""
+    user = UserCRUD.get_by_email(db, email)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.is_active = True
+    db.commit()
+    log_action(db, current_user.id, "ACTIVATE_USER", "user", user.id, detail=email)
+    return {"success": True, "message": f"{email} account activated"}
+
+
+@app.patch("/admin/deactivate", tags=["Auth"])
+def deactivate_user(email: str, current_user=Depends(require_admin), db: Session = Depends(get_db)):
+    """Admin-only: deactivate a user account (blocks login)."""
+    user = UserCRUD.get_by_email(db, email)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.is_active = False
+    db.commit()
+    log_action(db, current_user.id, "DEACTIVATE_USER", "user", user.id, detail=email)
+    return {"success": True, "message": f"{email} account deactivated"}
+
+
 @app.post("/auth/login", tags=["Auth"])
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Login with email + password → returns JWT token."""
