@@ -23,7 +23,8 @@ import streamlit as st
 import requests
 from datetime import date, datetime
 
-API_URL = "https://fullcontrol-production.up.railway.app"
+API_URL = "http://127.0.0.1:8000"
+
 st.set_page_config(
     page_title="MedAssist — Doctor Dashboard",
     page_icon="👨‍⚕️", layout="wide",
@@ -612,11 +613,11 @@ with tab_dx:
                 "🤰 Reproductive":    ["Irregular Periods","Pelvic Pain","Discharge","Erectile Dysfunction","Testicular Pain","Breast Changes"],
             }
             selected = []
-            for cat, syms in categories.items():
+            for cat_idx, (cat, syms) in enumerate(categories.items()):
                 with st.expander(cat):
                     cols = st.columns(2)
-                    for i, s in enumerate(syms):
-                        with cols[i % 2]:
+                    for sym_idx, s in enumerate(syms):
+                        with cols[sym_idx % 2]:
                             if st.checkbox(s, key=f"sx_{cat_idx}_{sym_idx}"): selected.append(s)
             symptoms_list = selected
             if symptoms_list:
@@ -863,70 +864,64 @@ with tab_pts:
 
                     b1, b2 = st.columns([3, 1])
                     with b1:
-                        cdata_key = f"cdata_{p['id']}"
                         if st.button(f"📋 Load Consultations", key=f"lc_{p['id']}"):
-                            st.session_state[cdata_key] = api_get(f"/patients/{p['id']}/consultations")
-                        cdata = st.session_state.get(cdata_key)
-                        if cdata:
-                            st.markdown(f"**{cdata.get('total_consultations',0)} consultation(s):**")
-                            for c in cdata.get("consultations", []):
-                                syms = [s.get("symptom_name","") for s in c.get("symptoms", [])]
-                                approval = c.get("doctor_approval_status", "pending")
-                                badge_html = '<span style="background:#22c55e22;border:1px solid #22c55e;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#22c55e">✅ Reviewed</span>' \
-                                    if approval == "approved" else \
-                                    '<span style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#f59e0b">⏳ Pending</span>'
-                                st.markdown(f"**#{c['id']}** — {(c.get('consultation_date') or '')[:10]} | Severity: {c.get('severity','—')} | {c.get('model_used','—')} {badge_html}", unsafe_allow_html=True)
-                                if syms: st.markdown(f"Symptoms: {', '.join(syms)}")
-                                toggle_key = f"show_diag_{c['id']}"
-                                if toggle_key not in st.session_state:
-                                    st.session_state[toggle_key] = False
-                                if st.button(f"{'🔼 Hide' if st.session_state[toggle_key] else '🔽 Show'} Full AI Diagnosis #{c['id']}", key=f"btn_diag_{c['id']}"):
-                                    st.session_state[toggle_key] = not st.session_state[toggle_key]
-                                if st.session_state[toggle_key]:
-                                    st.markdown(c.get("ai_diagnosis") or "No diagnosis recorded.")
-                                    if c.get("doctor_notes"):
-                                        st.markdown(f"**🩺 Doctor's Note:** {c['doctor_notes']}")
-                                    # Review form — only show if pending
-                                    if approval != "approved":
-                                        st.markdown("---")
-                                        st.markdown("**✍️ Review & Approve this Diagnosis:**")
-                                        review_notes = st.text_area(f"Doctor's Notes for #{c['id']}",
-                                            placeholder="Add clinical notes, corrections, or follow-up instructions...",
-                                            key=f"notes_{c['id']}", height=80)
-                                        urgency = st.selectbox(f"Urgency Level #{c['id']}",
-                                            ["", "Non-Urgent", "48-72 Hours", "Today", "Emergency"],
-                                            key=f"urg_{c['id']}")
-                                        col_approve, col_reject = st.columns(2)
-                                        with col_approve:
-                                            if st.button(f"✅ Approve #{c['id']}", key=f"appr_{c['id']}", type="primary"):
-                                                if not review_notes.strip():
-                                                    st.error("Please add doctor's notes before approving.")
-                                                else:
-                                                    rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
-                                                        "doctor_notes": review_notes.strip(),
-                                                        "approved": True,
-                                                        "urgency_level": urgency or None
-                                                    })
-                                                    if rc == 200:
-                                                        st.success(f"✅ Consultation #{c['id']} approved!")
-                                                        st.rerun()
+                            cdata = api_get(f"/patients/{p['id']}/consultations")
+                            if cdata:
+                                st.markdown(f"**{cdata.get('total_consultations',0)} consultation(s):**")
+                                for c in cdata.get("consultations", []):
+                                    syms = [s.get("symptom_name","") for s in c.get("symptoms", [])]
+                                    approval = c.get("doctor_approval_status", "pending")
+                                    badge_html = '<span style="background:#22c55e22;border:1px solid #22c55e;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#22c55e">✅ Reviewed</span>' \
+                                        if approval == "approved" else \
+                                        '<span style="background:#f59e0b22;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:.75rem;color:#f59e0b">⏳ Pending</span>'
+                                    st.markdown(f"**#{c['id']}** — {(c.get('consultation_date') or '')[:10]} | Severity: {c.get('severity','—')} | {c.get('model_used','—')} {badge_html}", unsafe_allow_html=True)
+                                    if syms: st.markdown(f"Symptoms: {', '.join(syms)}")
+                                    st.markdown(f"<div style='background:#0d1f2d;border:1px solid #1e3a5f;border-radius:8px;padding:8px 14px;margin-top:6px'><strong style='color:#7ab3d4'>🤖 Full AI Diagnosis #{c['id']}</strong></div>", unsafe_allow_html=True)
+                                    if True:
+                                        st.markdown(c.get("ai_diagnosis") or "No diagnosis recorded.")
+                                        if c.get("doctor_notes"):
+                                            st.markdown(f"**🩺 Doctor's Note:** {c['doctor_notes']}")
+                                        # Review form — only show if pending
+                                        if approval != "approved":
+                                            st.markdown("---")
+                                            st.markdown("**✍️ Review & Approve this Diagnosis:**")
+                                            review_notes = st.text_area(f"Doctor's Notes for #{c['id']}",
+                                                placeholder="Add clinical notes, corrections, or follow-up instructions...",
+                                                key=f"notes_{c['id']}", height=80)
+                                            urgency = st.selectbox(f"Urgency Level #{c['id']}",
+                                                ["", "Non-Urgent", "48-72 Hours", "Today", "Emergency"],
+                                                key=f"urg_{c['id']}")
+                                            col_approve, col_reject = st.columns(2)
+                                            with col_approve:
+                                                if st.button(f"✅ Approve #{c['id']}", key=f"appr_{c['id']}", type="primary"):
+                                                    if not review_notes.strip():
+                                                        st.error("Please add doctor's notes before approving.")
                                                     else:
-                                                        st.error(f"Error: {rv.get('detail','')}")
-                                        with col_reject:
-                                            if st.button(f"❌ Flag for Revision #{c['id']}", key=f"flag_{c['id']}", type="secondary"):
-                                                if not review_notes.strip():
-                                                    st.error("Please add notes explaining the revision needed.")
-                                                else:
-                                                    rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
-                                                        "doctor_notes": review_notes.strip(),
-                                                        "approved": False,
-                                                        "urgency_level": urgency or None
-                                                    })
-                                                    if rc == 200:
-                                                        st.warning(f"Consultation #{c['id']} flagged for revision.")
-                                                        st.rerun()
+                                                        rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
+                                                            "doctor_notes": review_notes.strip(),
+                                                            "approved": True,
+                                                            "urgency_level": urgency or None
+                                                        })
+                                                        if rc == 200:
+                                                            st.success(f"✅ Consultation #{c['id']} approved!")
+                                                            st.rerun()
+                                                        else:
+                                                            st.error(f"Error: {rv.get('detail','')}")
+                                            with col_reject:
+                                                if st.button(f"❌ Flag for Revision #{c['id']}", key=f"flag_{c['id']}", type="secondary"):
+                                                    if not review_notes.strip():
+                                                        st.error("Please add notes explaining the revision needed.")
                                                     else:
-                                                        st.error(f"Error: {rv.get('detail','')}")
+                                                        rv, rc = api_patch(f"/consultations/{c['id']}/review", payload={
+                                                            "doctor_notes": review_notes.strip(),
+                                                            "approved": False,
+                                                            "urgency_level": urgency or None
+                                                        })
+                                                        if rc == 200:
+                                                            st.warning(f"Consultation #{c['id']} flagged for revision.")
+                                                            st.rerun()
+                                                        else:
+                                                            st.error(f"Error: {rv.get('detail','')}")
                     with b2:
                         if st.button(f"🗑️ Deactivate", key=f"dp_{p['id']}", type="secondary"):
                             try:
@@ -1036,13 +1031,11 @@ with tab_docs:
 
     if "➕" in doc_action and _is_admin:
         st.markdown('<div class="section-title">➕ Register Doctor</div>', unsafe_allow_html=True)
-        st.markdown('<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;padding:.6rem .9rem;font-size:.82rem;color:#93c5fd;margin-bottom:.8rem">ℹ️ This creates both a <strong>login account</strong> (email + password) and a <strong>doctor profile</strong>. The doctor will be marked <strong>Pending Approval</strong> until you approve them below.</div>', unsafe_allow_html=True)
         with st.form("reg_doc", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             with c1:
-                d_fn   = st.text_input("First Name *", key="ti_firstname_2")
-                d_email= st.text_input("Email *", placeholder="doctor@hospital.com", key="ti_email_2")
-                d_pwd  = st.text_input("Password *", type="password", placeholder="Min 8 characters", key="ti_pwd_doc")
+                d_fn  = st.text_input("First Name *", key="ti_firstname_2")
+                d_email= st.text_input("Email", key="ti_email_2")
                 d_spec = st.text_input("Specialization", placeholder="Cardiology")
                 d_qual = st.text_input("Qualification", placeholder="MBBS, MD, DM")
                 d_hosp = st.text_input("Hospital / Clinic")
@@ -1050,7 +1043,6 @@ with tab_docs:
             with c2:
                 d_ln   = st.text_input("Last Name *", key="ti_lastname_2")
                 d_phone= st.text_input("Phone", key="ti_phone_2")
-                d_pwd2 = st.text_input("Confirm Password *", type="password", placeholder="Repeat password", key="ti_pwd2_doc")
                 d_sub  = st.text_input("Sub-specialization", placeholder="Interventional Cardiology")
                 d_lic  = st.text_input("License Number")
                 d_dept = st.text_input("Department")
@@ -1062,89 +1054,22 @@ with tab_docs:
                 d_lang = st.text_input("Languages", placeholder="English, Hindi, Tamil")
             d_bio = st.text_area("Bio / About", height=80)
             if st.form_submit_button("✅ Register Doctor", type="primary", use_container_width=True):
-                errors = []
-                if not d_fn.strip() or not d_ln.strip(): errors.append("First and Last Name are required.")
-                if not d_email.strip(): errors.append("Email is required.")
-                if not d_pwd.strip() or len(d_pwd) < 8: errors.append("Password must be at least 8 characters.")
-                if d_pwd != d_pwd2: errors.append("Passwords do not match.")
-                if errors:
-                    for e in errors: st.error(e)
+                if not d_fn.strip() or not d_ln.strip():
+                    st.error("First and Last Name required")
                 else:
-                    # Step 1: Create login account
-                    auth_payload = {
-                        "email": d_email.strip(),
-                        "password": d_pwd,
-                        "full_name": f"{d_fn.strip()} {d_ln.strip()}",
-                        "role": "doctor",
-                        "consent_given": True,
-                    }
-                    try:
-                        auth_resp = requests.post(f"{API_URL}/auth/register", json=auth_payload, headers=_headers(), timeout=8)
-                        auth_data = auth_resp.json()
-                    except Exception as e:
-                        st.error(f"Connection error: {e}")
-                        auth_data = None
-                        auth_resp = None
-
-                    if auth_resp and auth_resp.status_code == 201:
-                        # Step 2: Create doctor profile
-                        profile_payload = {"first_name": d_fn.strip(), "last_name": d_ln.strip()}
-                        for k, v in [("email",d_email),("phone",d_phone),("specialization",d_spec),
-                                      ("sub_specialization",d_sub),("qualification",d_qual),
-                                      ("license_number",d_lic),("hospital",d_hosp),("department",d_dept),
-                                      ("experience_years",d_exp),("consultation_fee",d_fee),
-                                      ("available_days",d_days),("available_from",d_from),
-                                      ("available_to",d_to),("languages",d_lang),("bio",d_bio)]:
-                            if v: profile_payload[k] = v
-                        doc_data, doc_code = api_post("/doctors", profile_payload)
-                        # Step 3: Deactivate until admin approves
-                        try:
-                            requests.patch(f"{API_URL}/admin/deactivate",
-                                           params={"email": d_email.strip()},
-                                           headers=_headers(), timeout=8)
-                        except: pass
-                        if doc_code == 201:
-                            st.success(f"✅ Dr. {d_fn} {d_ln} registered! Login account + profile created.")
-                            st.warning("⏳ Account is **Pending Approval**. Approve them in the section below.")
-                        else:
-                            st.warning(f"⚠️ Login account created but profile failed: {doc_data.get('detail','Error')}")
-                    elif auth_resp:
-                        st.error(f"❌ Account creation failed: {auth_data.get('detail','Error')}")
-
-        # ── Pending Doctor Approvals ──────────────────────────────────────────
-        st.divider()
-        st.markdown('<div class="section-title">⏳ Pending Doctor Approvals</div>', unsafe_allow_html=True)
-        st.caption("Doctors registered but not yet approved. Approve to let them log in.")
-        if st.button("🔄 Refresh Pending", key="refresh_pending"):
-            st.rerun()
-        try:
-            pending_resp = requests.get(f"{API_URL}/admin/pending-doctors", headers=_headers(), timeout=8)
-            if pending_resp.status_code == 200:
-                pending_doctors = pending_resp.json().get("users", [])
-                if not pending_doctors:
-                    st.info("✅ No pending approvals.")
-                else:
-                    for pu in pending_doctors:
-                        col_info, col_btn = st.columns([4, 1])
-                        with col_info:
-                            st.markdown(f"**{pu.get('full_name','—')}** · {pu.get('email','—')} · Registered: {(pu.get('created_at') or '')[:10]}")
-                        with col_btn:
-                            if st.button("✅ Approve", key=f"approve_doc_{pu['id']}"):
-                                try:
-                                    r = requests.patch(f"{API_URL}/admin/activate",
-                                                       params={"email": pu["email"]},
-                                                       headers=_headers(), timeout=8)
-                                    if r.status_code == 200:
-                                        st.success(f"✅ {pu.get('full_name')} approved! They can now log in.")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"Failed: {r.json().get('detail','')}")
-                                except Exception as e:
-                                    st.error(f"Error: {e}")
-            else:
-                st.caption("Could not load pending approvals.")
-        except Exception as e:
-            st.caption(f"Could not reach server: {e}")
+                    payload = {"first_name": d_fn.strip(), "last_name": d_ln.strip()}
+                    for k, v in [("email",d_email),("phone",d_phone),("specialization",d_spec),
+                                  ("sub_specialization",d_sub),("qualification",d_qual),
+                                  ("license_number",d_lic),("hospital",d_hosp),("department",d_dept),
+                                  ("experience_years",d_exp),("consultation_fee",d_fee),
+                                  ("available_days",d_days),("available_from",d_from),
+                                  ("available_to",d_to),("languages",d_lang),("bio",d_bio)]:
+                        if v: payload[k] = v
+                    data, code = api_post("/doctors", payload)
+                    if code == 201:
+                        st.success(f"✅ Dr. {d_fn} {d_ln} registered! ID: #{data['doctor']['id']}")
+                    else:
+                        st.error(f"❌ {data.get('detail','Error')}")
 
     else:
         st.markdown('<div class="section-title">📋 All Doctors</div>', unsafe_allow_html=True)
