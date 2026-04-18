@@ -33,9 +33,9 @@ bcrypt==4.1.2
 passlib[bcrypt]==1.7.4
 
 # Data Validation
-pydantic==2.6.4
+pydantic==2.6.3
+pydantic-core==2.16.3
 pydantic-settings==2.2.1
-email-validator==2.2.0
 
 # HTTP & Networking
 requests==2.32.3
