@@ -2,14 +2,14 @@
 # Install: pip install -r requirements.txt
 
 # ─── Core AI Framework ────────────────────────────────────────────────────────
-langgraph==0.2.64
-langchain==0.3.14
-langchain-core==0.3.30
-langchain-community==0.3.14
-langchain-groq==0.2.3
-langchain-openai==0.3.0
-langchain-text-splitters==0.3.5
-langgraph-checkpoint==2.0.10
+langgraph==0.1.19
+langchain==0.2.16
+langchain-core==0.2.40
+langchain-community==0.2.16
+langchain-groq==0.1.9
+langchain-openai==0.1.23
+langchain-text-splitters==0.2.4
+langgraph-checkpoint==1.0.12
 langsmith==0.2.11
 
 # ─── LLM Providers ────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ openai==1.59.8
 tiktoken==0.8.0
 
 # ─── Web Framework ────────────────────────────────────────────────────────────
-fastapi==0.115.6
+fastapi==0.111.0
 uvicorn==0.34.0
 starlette==0.41.3
 python-multipart==0.0.12    # FIX 3: file uploads
@@ -37,8 +37,8 @@ bcrypt==4.1.2
 passlib[bcrypt]==1.7.4
 
 # ─── Data Validation ──────────────────────────────────────────────────────────
-pydantic==2.9.2
-pydantic-settings==2.5.2
+pydantic==2.6.4
+pydantic-settings==2.2.1
 email-validator==2.2.0
 
 # ─── HTTP & Networking ────────────────────────────────────────────────────────
