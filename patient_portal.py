@@ -12,7 +12,7 @@ import streamlit as st
 import requests
 from datetime import date
 
-API_URL = "https://fullcontrol-production.up.railway.app"
+API_URL = "https://fullcontrol-production-8723.up.railway.app"
 
 st.set_page_config(
     page_title="MedAssist — Patient Portal",
